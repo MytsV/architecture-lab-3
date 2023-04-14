@@ -16,6 +16,8 @@ import (
 	"golang.org/x/mobile/event/size"
 )
 
+const windowSize = 800
+
 type Visualizer struct {
 	Title         string
 	Debug         bool
@@ -48,8 +50,8 @@ func (pw *Visualizer) run(s screen.Screen) {
 
 	w, err := s.NewWindow(&screen.NewWindowOptions{
 		Title: pw.Title,
-		Width: 800,
-		Height: 800,
+		Width: windowSize,
+		Height: windowSize,
 	})
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
@@ -135,12 +137,25 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 func (pw *Visualizer) drawDefaultUI() {
 	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
 
-	// TODO: Змінити колір фону та додати відображення фігури у вашому варіанті.
-	//rect := image.Rect(0, 0, 200, 200)
-	//pw.w.Fill(rect, color.White, draw.Src)
+	//Малювання фігури - жовта буква "Т"
+	size := pw.sz.Size()
+	pw.DrawFigure(size.X / 2, size.Y / 2)
 
 	// Малювання білої рамки.
 	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
 		pw.w.Fill(br, color.White, draw.Src)
 	}
 }
+
+func (pw *Visualizer) DrawFigure(x, y int) {
+	//Виміри фігури
+	hlen := 115
+	hwidth := 35
+	yellow := color.RGBA{R: 0xff, G: 0xff, A: 0xff}
+
+	horizontal := image.Rect(x - hlen, y - hlen, x + hlen, y - hlen + hwidth * 2)
+	pw.w.Fill(horizontal, yellow, draw.Src)
+	vertical := image.Rect(x - hwidth, y - hlen, x + hwidth, y + hlen)
+	pw.w.Fill(vertical, yellow, draw.Src)
+}
+ 
