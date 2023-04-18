@@ -122,8 +122,7 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 
 	case mouse.Event:
 		if t == nil {
-			// Реакція на натискання лівої кнопки миші.
-			if e.Button == 1 && e.Direction == mouse.DirPress {
+			if e.Button == mouse.ButtonLeft && e.Direction == mouse.DirPress {
 				log.Println(e.Modifiers)
 				pw.mp.X = int(e.X)
 				pw.mp.Y = int(e.Y)
