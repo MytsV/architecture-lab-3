@@ -29,6 +29,7 @@ type Visualizer struct {
 
 	sz  size.Event
 	pos image.Rectangle
+	mp  image.Point
 }
 
 func (pw *Visualizer) Main() {
@@ -36,6 +37,8 @@ func (pw *Visualizer) Main() {
 	pw.done = make(chan struct{})
 	pw.pos.Max.X = 200
 	pw.pos.Max.Y = 200
+	pw.mp.X = windowSize / 2
+	pw.mp.Y = windowSize / 2
 	driver.Main(pw.run)
 }
 
@@ -49,8 +52,8 @@ func (pw *Visualizer) run(s screen.Screen) {
 	}
 
 	w, err := s.NewWindow(&screen.NewWindowOptions{
-		Title: pw.Title,
-		Width: windowSize,
+		Title:  pw.Title,
+		Width:  windowSize,
 		Height: windowSize,
 	})
 	if err != nil {
@@ -119,7 +122,13 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 
 	case mouse.Event:
 		if t == nil {
-			// TODO: Реалізувати реакцію на натискання кнопки миші.
+			// Реакція на натискання лівої кнопки миші.
+			if e.Button == 1 && e.Direction == mouse.DirPress {
+				log.Println(e.Modifiers)
+				pw.mp.X = int(e.X)
+				pw.mp.Y = int(e.Y)
+				pw.w.Send(paint.Event{})
+			}
 		}
 
 	case paint.Event:
@@ -138,8 +147,7 @@ func (pw *Visualizer) drawDefaultUI() {
 	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
 
 	//Малювання фігури - жовта буква "Т"
-	size := pw.sz.Size()
-	pw.DrawFigure(size.X / 2, size.Y / 2)
+	pw.DrawFigure(pw.mp.X, pw.mp.Y)
 
 	// Малювання білої рамки.
 	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
@@ -153,9 +161,8 @@ func (pw *Visualizer) DrawFigure(x, y int) {
 	hwidth := 35
 	yellow := color.RGBA{R: 0xff, G: 0xff, A: 0xff}
 
-	horizontal := image.Rect(x - hlen, y - hlen, x + hlen, y - hlen + hwidth * 2)
+	horizontal := image.Rect(x-hlen, y-hlen, x+hlen, y-hlen+hwidth*2)
 	pw.w.Fill(horizontal, yellow, draw.Src)
-	vertical := image.Rect(x - hwidth, y - hlen, x + hwidth, y + hlen)
+	vertical := image.Rect(x-hwidth, y-hlen, x+hwidth, y+hlen)
 	pw.w.Fill(vertical, yellow, draw.Src)
 }
- 
