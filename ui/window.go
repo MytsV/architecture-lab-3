@@ -27,16 +27,13 @@ type Visualizer struct {
 	tx   chan screen.Texture
 	done chan struct{}
 
-	sz  size.Event
-	pos image.Rectangle
-	mp  image.Point
+	sz size.Event
+	mp image.Point
 }
 
 func (pw *Visualizer) Main() {
 	pw.tx = make(chan screen.Texture)
 	pw.done = make(chan struct{})
-	pw.pos.Max.X = 200
-	pw.pos.Max.Y = 200
 	pw.mp.X = windowSize / 2
 	pw.mp.Y = windowSize / 2
 	driver.Main(pw.run)
@@ -123,7 +120,6 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	case mouse.Event:
 		if t == nil {
 			if e.Button == mouse.ButtonLeft && e.Direction == mouse.DirPress {
-				log.Println(e.Modifiers)
 				pw.mp.X = int(e.X)
 				pw.mp.Y = int(e.Y)
 				pw.w.Send(paint.Event{})
