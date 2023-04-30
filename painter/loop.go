@@ -29,16 +29,24 @@ func (l *Loop) Start(s screen.Screen) {
 	l.prev, _ = s.NewTexture(size)
 
 	// TODO: ініціалізувати чергу подій.
+	l.mq = messageQueue{ch: make(chan Operation)}
 	// TODO: запустити рутину обробки повідомлень у черзі подій.
+	go func() {
+		op := l.mq.pull()
+		update := op.Do(l.next)
+		if update {
+			l.Receiver.Update(l.next)
+			l.next, l.prev = l.prev, l.next
+		}
+	}()
 }
 
 // Post додає нову операцію у внутрішню чергу.
 func (l *Loop) Post(op Operation) {
+
 	// TODO: реалізувати додавання операції в чергу. Поточна імплементація
-	update := op.Do(l.next)
-	if update {
-		l.Receiver.Update(l.next)
-		l.next, l.prev = l.prev, l.next
+	if op != nil {
+		l.mq.push(op)
 	}
 }
 
@@ -49,8 +57,13 @@ func (l *Loop) StopAndWait() {
 
 // TODO: реалізувати власну чергу повідомлень.
 type messageQueue struct {
+	ch chan Operation
 }
 
-func (mq *messageQueue) push(op Operation) {}
+func (mq *messageQueue) push(op Operation) {
+	mq.ch <- op
+}
 
-func (mq *messageQueue) pull() Operation { return nil }
+func (mq *messageQueue) pull() Operation {
+	return <-mq.ch
+}
