@@ -32,11 +32,13 @@ func (l *Loop) Start(s screen.Screen) {
 	l.mq = messageQueue{ch: make(chan Operation)}
 	// TODO: запустити рутину обробки повідомлень у черзі подій.
 	go func() {
-		op := l.mq.pull()
-		update := op.Do(l.next)
-		if update {
-			l.Receiver.Update(l.next)
-			l.next, l.prev = l.prev, l.next
+		for {
+			op := l.mq.pull()
+			update := op.Do(l.next)
+			if update {
+				l.Receiver.Update(l.next)
+				l.next, l.prev = l.prev, l.next
+			}
 		}
 	}()
 }
