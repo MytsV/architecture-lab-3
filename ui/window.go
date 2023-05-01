@@ -44,15 +44,17 @@ func (pw *Visualizer) Update(t screen.Texture) {
 }
 
 func (pw *Visualizer) run(s screen.Screen) {
-	if pw.OnScreenReady != nil {
-		pw.OnScreenReady(s)
-	}
-
 	w, err := s.NewWindow(&screen.NewWindowOptions{
 		Title:  pw.Title,
 		Width:  windowSize,
 		Height: windowSize,
 	})
+
+	//Виклик OnScreenReady був перенесений, оскільки пізня ініціалізація вікна викликала помилку сегментації
+	if pw.OnScreenReady != nil {
+		pw.OnScreenReady(s)
+	}
+
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
 	}
