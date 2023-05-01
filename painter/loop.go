@@ -19,45 +19,60 @@ type Loop struct {
 	prev screen.Texture // текстура, яка була відправленя останнього разу у Receiver
 
 	mq messageQueue
+
+	shouldStop bool
+	finished   chan struct{}
 }
 
-var size = image.Pt(400, 400)
+var size = image.Pt(800, 800)
 
 // Start запускає цикл подій. Цей метод потрібно запустити до того, як викликати на ньому будь-які інші методи.
 func (l *Loop) Start(s screen.Screen) {
 	l.next, _ = s.NewTexture(size)
 	l.prev, _ = s.NewTexture(size)
 
-	// TODO: ініціалізувати чергу подій.
-	l.mq = messageQueue{ch: make(chan Operation)}
-	// TODO: запустити рутину обробки повідомлень у черзі подій.
-	go func() {
+	// Ініціалізуємо чергу операцій.
+	l.mq = *newQueue()
+	// Ініціалізуємо індентифікатор завершення циклу.
+	l.finished = make(chan struct{})
+	// Запускаємо рутину обробки повідомлень у черзі подій.
+	go beginEventLoop(l)
+}
+
+func beginEventLoop(l *Loop) {
+	for !l.shouldStop || !l.mq.isEmpty() {
 		op := l.mq.pull()
 		update := op.Do(l.next)
 		if update {
 			l.Receiver.Update(l.next)
 			l.next, l.prev = l.prev, l.next
 		}
-	}()
+	}
+	close(l.finished)
 }
 
 // Post додає нову операцію у внутрішню чергу.
 func (l *Loop) Post(op Operation) {
-
-	// TODO: реалізувати додавання операції в чергу. Поточна імплементація
+	// Додаємо операцію в чергу, якщо вона ненульова.
 	if op != nil {
 		l.mq.push(op)
 	}
 }
 
-// StopAndWait сигналізує
+// StopAndWait сигналізує про необхідність завершення циклу подій після виконання всіх операцій з черги і чекає на завершення.
 func (l *Loop) StopAndWait() {
-
+	l.shouldStop = true
+	<-l.finished
 }
 
-// TODO: реалізувати власну чергу повідомлень.
+// messageQueue визначає асинхронну чергу операцій.
 type messageQueue struct {
 	ch chan Operation
+}
+
+// newQueue створює нову чергу з максимальною місткістю у 1024 операції.
+func newQueue() *messageQueue {
+	return &messageQueue{ch: make(chan Operation, 1024)}
 }
 
 func (mq *messageQueue) push(op Operation) {
@@ -66,4 +81,8 @@ func (mq *messageQueue) push(op Operation) {
 
 func (mq *messageQueue) pull() Operation {
 	return <-mq.ch
+}
+
+func (mq *messageQueue) isEmpty() bool {
+	return len(mq.ch) == 0
 }
