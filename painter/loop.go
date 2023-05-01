@@ -19,6 +19,9 @@ type Loop struct {
 	prev screen.Texture // текстура, яка була відправленя останнього разу у Receiver
 
 	mq messageQueue
+
+	shouldStop bool
+	finished   chan struct{}
 }
 
 var size = image.Pt(400, 400)
@@ -30,12 +33,14 @@ func (l *Loop) Start(s screen.Screen) {
 
 	// Ініціалізуємо чергу операцій.
 	l.mq = *newQueue()
+	// Ініціалізуємо індентифікатор завершення циклу.
+	l.finished = make(chan struct{})
 	// Запускаємо рутину обробки повідомлень у черзі подій.
 	go beginEventLoop(l)
 }
 
 func beginEventLoop(l *Loop) {
-	for {
+	for !l.shouldStop || !l.mq.isEmpty() {
 		op := l.mq.pull()
 		update := op.Do(l.next)
 		if update {
@@ -43,6 +48,7 @@ func beginEventLoop(l *Loop) {
 			l.next, l.prev = l.prev, l.next
 		}
 	}
+	close(l.finished)
 }
 
 // Post додає нову операцію у внутрішню чергу.
@@ -53,9 +59,10 @@ func (l *Loop) Post(op Operation) {
 	}
 }
 
-// StopAndWait сигналізує
+// StopAndWait сигналізує про необхідність завершення циклу подій після виконання всіх операцій з черги і чекає на завершення.
 func (l *Loop) StopAndWait() {
-
+	l.shouldStop = true
+	<-l.finished
 }
 
 // messageQueue визначає асинхронну чергу операцій.
@@ -74,4 +81,8 @@ func (mq *messageQueue) push(op Operation) {
 
 func (mq *messageQueue) pull() Operation {
 	return <-mq.ch
+}
+
+func (mq *messageQueue) isEmpty() bool {
+	return len(mq.ch) == 0
 }
