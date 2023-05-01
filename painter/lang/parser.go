@@ -3,6 +3,7 @@ package lang
 import (
 	"bufio"
 	"fmt"
+	"image/color"
 	"io"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 // Parser уміє прочитати дані з вхідного io.Reader та повернути список операцій представлені вхідним скриптом.
 type Parser struct {
 	// Зберігає стан малюнку у спеціальній операції.
-	state painter.OperationState
+	state painter.StatefulOperationList
 }
 
 func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
@@ -26,13 +27,19 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 		op, status := parse(commandLine)
 		if op == nil || status == absent {
 			// Якщо операція не імплементована, видаємо помилку.
-			return nil, fmt.Errorf("Unknown command!")
+			return nil, fmt.Errorf("Unknown command")
 		} else if status == regular {
 			// Якщо операція звичайна, просто додаємо її у список до передачі в цикл.
 			res = append(res, op)
 		} else {
-			// Якщо операція впливає на стан, оновлюємо його.
-			p.state.Add(op)
+			// Якщо операція впливає на стан, пробуємо перевести її під інтерфейс StatefulOperation.
+			stateOp, ok := op.(painter.StatefulOperation)
+			if !ok {
+				// Якщо парсер хоче оновлення стану за допомогою звичайної операції, закінчуємо програму з помилкою.
+				panic("Tried to use the state of a regular operation")
+			}
+			// Інакше оновлюємо стан.
+			p.state.Update(stateOp)
 		}
 	}
 	// Завжди надсилаємо операцію зі станом у цикл подій, на першому місці.
@@ -54,9 +61,9 @@ func parse(cmd string) (painter.Operation, cmdType) {
 	fields := strings.Fields(cmd)
 	switch fields[0] {
 	case "white":
-		return painter.OperationFunc(painter.WhiteFill), stateful
+		return painter.OperationFill{Color: color.White}, stateful
 	case "green":
-		return painter.OperationFunc(painter.GreenFill), stateful
+		return painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}, stateful
 	case "rect":
 		return painter.OperationRect, regular
 	case "update":

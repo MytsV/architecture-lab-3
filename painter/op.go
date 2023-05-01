@@ -24,24 +24,28 @@ func (ol OperationList) Do(t screen.Texture) (ready bool) {
 	return
 }
 
-type OperationState struct {
+// StatefulOperation наслідує Operation, але крім цього ще й вміє змінювати стан малюнку.
+type StatefulOperation interface {
+	Operation
+	// SetState виконує зміну переданої операції зі станом.
+	SetState(sol *StatefulOperationList)
+}
+
+// StatefulOperationList групує операції, що впливають на стан, в одну.
+type StatefulOperationList struct {
 	backgroundOperation Operation
 }
 
-func (os OperationState) Do(t screen.Texture) (ready bool) {
-	if os.backgroundOperation != nil {
-		os.backgroundOperation.Do(t)
+// Виконує операції відносно до збереженого стану.
+func (sol StatefulOperationList) Do(t screen.Texture) (ready bool) {
+	if sol.backgroundOperation != nil {
+		sol.backgroundOperation.Do(t)
 	}
 	return false
 }
 
-func (os *OperationState) Add(o Operation) {
-	switch o.(type) {
-	case OperationFunc:
-		os.backgroundOperation = o
-	default:
-		panic("Unknown operation")
-	}
+func (sol *StatefulOperationList) Update(o StatefulOperation) {
+	o.SetState(sol)
 }
 
 // UpdateOp операція, яка не змінює текстуру, але сигналізує, що текстуру потрібно розглядати як готову.
@@ -59,14 +63,18 @@ func (f OperationFunc) Do(t screen.Texture) bool {
 	return false
 }
 
-// WhiteFill зафарбовує тестуру у білий колір. Може бути викоистана як Operation через OperationFunc(WhiteFill).
-func WhiteFill(t screen.Texture) {
-	t.Fill(t.Bounds(), color.White, screen.Src)
+// OperationFill зафарбовує текстуру у будь-який колір.
+type OperationFill struct {
+	Color color.Color
 }
 
-// GreenFill зафарбовує тестуру у зелений колір. Може бути викоистана як Operation через OperationFunc(GreenFill).
-func GreenFill(t screen.Texture) {
-	t.Fill(t.Bounds(), color.RGBA{G: 0xff, A: 0xff}, screen.Src)
+func (op OperationFill) Do(t screen.Texture) bool {
+	t.Fill(t.Bounds(), op.Color, screen.Src)
+	return false
+}
+
+func (op OperationFill) SetState(sol *StatefulOperationList) {
+	sol.backgroundOperation = op
 }
 
 var OperationRect = operationRect{}
