@@ -28,25 +28,26 @@ func (l *Loop) Start(s screen.Screen) {
 	l.next, _ = s.NewTexture(size)
 	l.prev, _ = s.NewTexture(size)
 
-	// TODO: ініціалізувати чергу подій.
-	l.mq = messageQueue{ch: make(chan Operation)}
-	// TODO: запустити рутину обробки повідомлень у черзі подій.
-	go func() {
-		for {
-			op := l.mq.pull()
-			update := op.Do(l.next)
-			if update {
-				l.Receiver.Update(l.next)
-				l.next, l.prev = l.prev, l.next
-			}
+	// Ініціалізуємо чергу операцій.
+	l.mq = *newQueue()
+	// Запускаємо рутину обробки повідомлень у черзі подій.
+	go beginEventLoop(l)
+}
+
+func beginEventLoop(l *Loop) {
+	for {
+		op := l.mq.pull()
+		update := op.Do(l.next)
+		if update {
+			l.Receiver.Update(l.next)
+			l.next, l.prev = l.prev, l.next
 		}
-	}()
+	}
 }
 
 // Post додає нову операцію у внутрішню чергу.
 func (l *Loop) Post(op Operation) {
-
-	// TODO: реалізувати додавання операції в чергу. Поточна імплементація
+	// Додаємо операцію в чергу, якщо вона ненульова.
 	if op != nil {
 		l.mq.push(op)
 	}
@@ -57,9 +58,14 @@ func (l *Loop) StopAndWait() {
 
 }
 
-// TODO: реалізувати власну чергу повідомлень.
+// messageQueue визначає асинхронну чергу операцій.
 type messageQueue struct {
 	ch chan Operation
+}
+
+// newQueue створює нову чергу з максимальною місткістю у 1024 операції.
+func newQueue() *messageQueue {
+	return &messageQueue{ch: make(chan Operation, 1024)}
 }
 
 func (mq *messageQueue) push(op Operation) {
