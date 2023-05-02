@@ -102,9 +102,11 @@ func TestParser_Input(t *testing.T) {
 
 func TestParser_Operation(t *testing.T) {
 	type testCase struct {
-		name string
-		cmd  string
-		ops  []painter.Operation
+		name     string
+		cmd      string
+		ops      []painter.Operation
+		figures  []*painter.OperationFigure
+		checkIdx int
 	}
 
 	testTable := []testCase{
@@ -116,6 +118,7 @@ func TestParser_Operation(t *testing.T) {
 				painter.StatefulOperationList{},
 				painter.UpdateOp,
 			},
+			checkIdx: -1,
 		},
 		{
 			name: "Figures are parsed with correct position",
@@ -125,8 +128,30 @@ func TestParser_Operation(t *testing.T) {
 				painter.StatefulOperationList{},
 				painter.StatefulOperationList{},
 			},
+			figures: []*painter.OperationFigure{
+				{Center: painter.RelativePoint{X: 0.5, Y: 0.5}},
+				{Center: painter.RelativePoint{X: -0.1, Y: 0.933}},
+			},
+			checkIdx: 2,
+		},
+		{
+			name: "Figures have correct position after multiple move operations",
+			cmd:  "figure 0.5 0.5\nfigure 0.4 0.35\nmove 0.2 0.2\nmove -0.1 0.1\nupdate",
+			ops: []painter.Operation{
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+				painter.UpdateOp,
+			},
+			figures: []*painter.OperationFigure{
+				{Center: painter.RelativePoint{X: 0.6, Y: 0.8}},
+				{Center: painter.RelativePoint{X: 0.5, Y: 0.65}},
+			},
+			checkIdx: 2,
 		},
 	}
+	delta := 0.00001
 
 	for _, test := range testTable {
 		p := &lang.Parser{}
@@ -135,6 +160,18 @@ func TestParser_Operation(t *testing.T) {
 		assert.Equal(t, len(test.ops), len(res))
 		for idx, op := range res {
 			assert.IsType(t, test.ops[idx], op)
+		}
+		if test.checkIdx != -1 {
+			st, ok := res[test.checkIdx].(painter.StatefulOperationList)
+			if !ok {
+				panic("Test case is incorrect")
+			}
+			assert.Equal(t, len(test.figures), len(st.FigureOperations))
+			for idx, figure := range test.figures {
+				stFigure := st.FigureOperations[idx]
+				assert.InDelta(t, figure.Center.X, stFigure.Center.X, delta)
+				assert.InDelta(t, figure.Center.Y, stFigure.Center.Y, delta)
+			}
 		}
 	}
 }
