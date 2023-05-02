@@ -249,7 +249,7 @@ func TestLoop_Post(t *testing.T) {
 		if !ok {
 			t.Fatal("Receiver still has no texture")
 		}
-		if tx.FillCnt != 5 && tx.UploadCnt != 1 {
+		if tx.FillCnt != 5 || tx.UploadCnt != 1 {
 			t.Error("Unexpected number of fill calls:", tx.FillCnt)
 		}
 
