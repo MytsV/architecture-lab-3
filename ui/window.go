@@ -32,7 +32,7 @@ type Visualizer struct {
 }
 
 func (pw *Visualizer) Main() {
-	pw.tx = make(chan screen.Texture)
+	pw.tx = make(chan screen.Texture, 1024)
 	pw.done = make(chan struct{})
 	pw.mp.X = windowSize / 2
 	pw.mp.Y = windowSize / 2
