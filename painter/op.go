@@ -77,12 +77,28 @@ func (op OperationFill) SetState(sol *StatefulOperationList) {
 	sol.backgroundOperation = op
 }
 
-var OperationRect = operationRect{}
+type RelativePoint struct {
+	X float64
+	Y float64
+}
 
-type operationRect struct{}
+func (p RelativePoint) ToAbs(size image.Point) image.Point {
+	return image.Point{
+		X: int(p.X * float64(size.X)),
+		Y: int(p.Y * float64(size.Y)),
+	}
+}
 
-func (o operationRect) Do(t screen.Texture) bool {
-	rect := image.Rect(50, 50, 100, 100)
-	t.Fill(rect, color.RGBA{R: 0xff, A: 0xff}, draw.Src)
+type OperationBGRect struct {
+	Min RelativePoint
+	Max RelativePoint
+}
+
+func (op OperationBGRect) Do(t screen.Texture) bool {
+	minAbs := op.Min.ToAbs(t.Size())
+	maxAbs := op.Max.ToAbs(t.Size())
+
+	rect := image.Rect(minAbs.X, minAbs.Y, maxAbs.X, maxAbs.Y)
+	t.Fill(rect, color.Black, draw.Src)
 	return false
 }
