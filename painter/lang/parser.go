@@ -35,8 +35,6 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 			res = append(res, op)
 		}
 	}
-	// Завжди надсилаємо операцію зі станом у цикл подій, на першому місці.
-	res = append([]painter.Operation{p.state}, res...)
 
 	return res, nil
 }
@@ -50,11 +48,6 @@ func (e countError) Error() string {
 // process обробляє текстову команду, повертаючи співвідносну операцію для додання в чергу. Враховує потребу редагування стану.
 func (p *Parser) process(cmd string) (painter.Operation, error) {
 	var tweaker painter.StateTweaker
-	defer func() {
-		if tweaker != nil {
-			p.state.Update(tweaker)
-		}
-	}()
 
 	// Розділяємо строку на окремі текстові строки команди за пропусками.
 	fields := strings.Fields(cmd)
@@ -103,13 +96,16 @@ func (p *Parser) process(cmd string) (painter.Operation, error) {
 		if len(fields) > 1 {
 			return nil, countError{}
 		}
-		op := painter.OperationReset{}
-		tweaker = op
-		return op, nil
+		tweaker = painter.ResetTweaker{}
 	default:
 		return nil, fmt.Errorf("Unknown command")
 	}
-	return nil, nil
+
+	if tweaker != nil {
+		p.state.Update(tweaker)
+	}
+	// Надсилаємо операцію зі станом у цикл подій, якщо більше ніякої не поверталося.
+	return p.state, nil
 }
 
 func processArguments(args []string, requiredLen int) ([]float64, error) {
@@ -128,5 +124,6 @@ func processArguments(args []string, requiredLen int) ([]float64, error) {
 			return nil, fmt.Errorf("Value at pos %d is not in [-1,1] range", idx)
 		}
 	}
+
 	return processed, nil
 }
