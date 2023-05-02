@@ -110,12 +110,12 @@ type OperationFigure struct {
 	Center RelativePoint
 }
 
+// Функція оптимізована для моєї версії MacOS. Вона не використовує імплементацію з пакету ui, тому що з неявних причин відлік системи координат починається в різних місцях для screen.Texture і screen.Window.
 func (op OperationFigure) Do(t screen.Texture) bool {
 	centerAbs := op.Center.ToAbs(t.Size())
 	x := centerAbs.X
 	y := centerAbs.Y
 
-	//Виміри фігури
 	hlen := 115
 	hwidth := 35
 	yellow := color.RGBA{R: 0xff, G: 0xff, A: 0xff}
