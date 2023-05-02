@@ -34,11 +34,15 @@ func (l *Loop) Start(s screen.Screen) {
 
 	// Ініціалізуємо чергу операцій.
 	l.mq = *newQueue()
+
+	// на випадок, якщо на лупі повторно викликається Start, без попередньої зупинки
+	if l.finished != nil {
+		l.StopAndWait()
+	}
 	// Ініціалізуємо індентифікатор завершення циклу.
 	l.finished = make(chan struct{})
 
-	// але життя цікаво, і мотивація то є сильна
-	//щоб можна було стартувати луп після його зупинки
+	//щоб можна було знову стартувати луп після його зупинки
 	l.Post(OperationFunc(func(t screen.Texture) {
 		l.shouldStop = false
 	}))
