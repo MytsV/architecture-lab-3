@@ -1,6 +1,7 @@
 package painter
 
 import (
+	"fmt"
 	"image"
 
 	"golang.org/x/exp/shiny/screen"
@@ -35,6 +36,12 @@ func (l *Loop) Start(s screen.Screen) {
 	l.mq = *newQueue()
 	// Ініціалізуємо індентифікатор завершення циклу.
 	l.finished = make(chan struct{})
+
+	// але життя цікаво, і мотивація то є сильна
+	//щоб можна було стартувати луп після його зупинки
+	l.Post(OperationFunc(func(t screen.Texture) {
+		l.shouldStop = false
+	}))
 	// Запускаємо рутину обробки повідомлень у черзі подій.
 	go beginEventLoop(l)
 }
@@ -49,20 +56,37 @@ func beginEventLoop(l *Loop) {
 		}
 	}
 	close(l.finished)
+	l.finished = nil
 }
 
 // Post додає нову операцію у внутрішню чергу.
-func (l *Loop) Post(op Operation) {
+func (l *Loop) Post(op Operation) error {
+	// Перевіримо чи цикл подій запущено
+	if l.finished == nil {
+		return fmt.Errorf("Loop_Post error: event loop wasn't started")
+	}
+
 	// Додаємо операцію в чергу, якщо вона ненульова.
 	if op != nil {
 		l.mq.push(op)
+		return nil
 	}
+
+	return fmt.Errorf("Loop_Post error: operation is nil")
 }
 
 // StopAndWait сигналізує про необхідність завершення циклу подій після виконання всіх операцій з черги і чекає на завершення.
-func (l *Loop) StopAndWait() {
-	l.shouldStop = true
+func (l *Loop) StopAndWait() error {
+	// Перевіримо чи цикл подій запущено
+	if l.finished == nil {
+		return fmt.Errorf("Loop_StopAndWait error: event loop wasn't started")
+	}
+
+	l.Post(OperationFunc(func(t screen.Texture) {
+		l.shouldStop = true
+	}))
 	<-l.finished
+	return nil
 }
 
 // messageQueue визначає асинхронну чергу операцій.
