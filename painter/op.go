@@ -22,22 +22,22 @@ type StateTweaker interface {
 
 // StatefulOperationList групує операції, що впливають на стан, в одну.
 type StatefulOperationList struct {
-	bgOperation      Operation
-	bgRectOperation  Operation
-	figureOperations []*OperationFigure
+	BgOperation      Operation
+	BgRectOperation  Operation
+	FigureOperations []*OperationFigure
 }
 
 // Виконує операції відносно до збереженого стану.
 func (sol StatefulOperationList) Do(t screen.Texture) (ready bool) {
-	if sol.bgOperation != nil {
-		sol.bgOperation.Do(t)
+	if sol.BgOperation != nil {
+		sol.BgOperation.Do(t)
 	} else {
 		t.Fill(t.Bounds(), color.Black, screen.Src)
 	}
-	if sol.bgRectOperation != nil {
-		sol.bgRectOperation.Do(t)
+	if sol.BgRectOperation != nil {
+		sol.BgRectOperation.Do(t)
 	}
-	for _, op := range sol.figureOperations {
+	for _, op := range sol.FigureOperations {
 		op.Do(t)
 	}
 	return false
@@ -73,7 +73,7 @@ func (op OperationFill) Do(t screen.Texture) bool {
 }
 
 func (op OperationFill) SetState(sol *StatefulOperationList) {
-	sol.bgOperation = op
+	sol.BgOperation = op
 }
 
 type RelativePoint struct {
@@ -103,7 +103,7 @@ func (op OperationBGRect) Do(t screen.Texture) bool {
 }
 
 func (op OperationBGRect) SetState(sol *StatefulOperationList) {
-	sol.bgRectOperation = op
+	sol.BgRectOperation = op
 }
 
 type OperationFigure struct {
@@ -129,7 +129,7 @@ func (op OperationFigure) Do(t screen.Texture) bool {
 }
 
 func (op OperationFigure) SetState(sol *StatefulOperationList) {
-	sol.figureOperations = append(sol.figureOperations, &op)
+	sol.FigureOperations = append(sol.FigureOperations, &op)
 }
 
 type MoveTweaker struct {
@@ -137,7 +137,7 @@ type MoveTweaker struct {
 }
 
 func (t MoveTweaker) SetState(sol *StatefulOperationList) {
-	for _, op := range sol.figureOperations {
+	for _, op := range sol.FigureOperations {
 		op.Center.X += t.Offset.X
 		op.Center.Y += t.Offset.Y
 	}
@@ -146,7 +146,7 @@ func (t MoveTweaker) SetState(sol *StatefulOperationList) {
 type ResetTweaker struct{}
 
 func (op ResetTweaker) SetState(sol *StatefulOperationList) {
-	sol.bgOperation = nil
-	sol.bgRectOperation = nil
-	sol.figureOperations = []*OperationFigure{}
+	sol.BgOperation = nil
+	sol.BgRectOperation = nil
+	sol.FigureOperations = []*OperationFigure{}
 }
