@@ -13,7 +13,7 @@ func TestParser_Input(t *testing.T) {
 	type testCase struct {
 		name string
 		cmd  string
-		op   painter.Operation
+		op   painter.Operation //NOT NEEDED, DELETE
 		err  string
 	}
 
@@ -97,5 +97,44 @@ func TestParser_Input(t *testing.T) {
 		_, err := p.Parse(strings.NewReader(test.cmd))
 
 		assert.Equal(t, test.err, err.Error(), test.name)
+	}
+}
+
+func TestParser_Operation(t *testing.T) {
+	type testCase struct {
+		name string
+		cmd  string
+		ops  []painter.Operation
+	}
+
+	testTable := []testCase{
+		{
+			name: "Simple consequent commands with state and without",
+			cmd:  "white\ngreen\nupdate",
+			ops: []painter.Operation{
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+				painter.UpdateOp,
+			},
+		},
+		{
+			name: "Figures are parsed with correct position",
+			cmd:  "white\nfigure 0.5 0.5\nfigure -0.1 0.933",
+			ops: []painter.Operation{
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+				painter.StatefulOperationList{},
+			},
+		},
+	}
+
+	for _, test := range testTable {
+		p := &lang.Parser{}
+		res, err := p.Parse(strings.NewReader(test.cmd))
+		assert.Nil(t, err)
+		assert.Equal(t, len(test.ops), len(res))
+		for idx, op := range res {
+			assert.IsType(t, test.ops[idx], op)
+		}
 	}
 }
