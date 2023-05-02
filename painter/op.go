@@ -24,31 +24,34 @@ func (ol OperationList) Do(t screen.Texture) (ready bool) {
 	return
 }
 
-// StatefulOperation наслідує Operation, але крім цього ще й вміє змінювати стан малюнку.
-type StatefulOperation interface {
-	Operation
+// StateTweaker вміє змінювати стан малюнку.
+type StateTweaker interface {
 	// SetState виконує зміну переданої операції зі станом.
 	SetState(sol *StatefulOperationList)
 }
 
 // StatefulOperationList групує операції, що впливають на стан, в одну.
 type StatefulOperationList struct {
-	backgroundOperation Operation
-	bgRectOperation     Operation
+	bgOperation      Operation
+	bgRectOperation  Operation
+	figureOperations []*OperationFigure
 }
 
 // Виконує операції відносно до збереженого стану.
 func (sol StatefulOperationList) Do(t screen.Texture) (ready bool) {
-	if sol.backgroundOperation != nil {
-		sol.backgroundOperation.Do(t)
+	if sol.bgOperation != nil {
+		sol.bgOperation.Do(t)
 	}
 	if sol.bgRectOperation != nil {
 		sol.bgRectOperation.Do(t)
 	}
+	for _, op := range sol.figureOperations {
+		op.Do(t)
+	}
 	return false
 }
 
-func (sol *StatefulOperationList) Update(o StatefulOperation) {
+func (sol *StatefulOperationList) Update(o StateTweaker) {
 	o.SetState(sol)
 }
 
@@ -78,7 +81,7 @@ func (op OperationFill) Do(t screen.Texture) bool {
 }
 
 func (op OperationFill) SetState(sol *StatefulOperationList) {
-	sol.backgroundOperation = op
+	sol.bgOperation = op
 }
 
 type RelativePoint struct {
@@ -109,4 +112,54 @@ func (op OperationBGRect) Do(t screen.Texture) bool {
 
 func (op OperationBGRect) SetState(sol *StatefulOperationList) {
 	sol.bgRectOperation = op
+}
+
+type OperationFigure struct {
+	Center RelativePoint
+}
+
+func (op OperationFigure) Do(t screen.Texture) bool {
+	centerAbs := op.Center.ToAbs(t.Size())
+	x := centerAbs.X
+	y := centerAbs.Y
+
+	//Виміри фігури
+	hlen := 115
+	hwidth := 35
+	yellow := color.RGBA{R: 0xff, G: 0xff, A: 0xff}
+
+	horizontal := image.Rect(x-hlen, y+hlen, x+hlen, y+hlen-hwidth*2)
+	t.Fill(horizontal, yellow, draw.Src)
+	vertical := image.Rect(x-hwidth, y-hlen, x+hwidth, y+hlen)
+	t.Fill(vertical, yellow, draw.Src)
+
+	return false
+}
+
+func (op OperationFigure) SetState(sol *StatefulOperationList) {
+	sol.figureOperations = append(sol.figureOperations, &op)
+}
+
+type MoveTweaker struct {
+	Offset RelativePoint
+}
+
+func (t MoveTweaker) SetState(sol *StatefulOperationList) {
+	for _, op := range sol.figureOperations {
+		op.Center.X += t.Offset.X
+		op.Center.Y += t.Offset.Y
+	}
+}
+
+type OperationReset struct{}
+
+func (op OperationReset) Do(t screen.Texture) bool {
+	t.Fill(t.Bounds(), color.Black, screen.Src)
+	return false
+}
+
+func (op OperationReset) SetState(sol *StatefulOperationList) {
+	sol.bgOperation = nil
+	sol.bgRectOperation = nil
+	sol.figureOperations = []*OperationFigure{}
 }

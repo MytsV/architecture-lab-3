@@ -24,23 +24,14 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		commandLine := scanner.Text()
-		// Отримуємо відповідну до команди операцію ії тип.
-		op, err := parse(commandLine)
+		// Отримуємо відповідну до команди структуру.
+		op, err := p.process(commandLine)
 
-		if _, ok := err.(statefulError); ok {
-			// Якщо операція впливає на стан, пробуємо перевести її під інтерфейс StatefulOperation.
-			stateOp, ok := op.(painter.StatefulOperation)
-			if !ok {
-				// Якщо парсер хоче оновлення стану за допомогою звичайної операції, закінчуємо програму з помилкою.
-				panic("Tried to use a regular operation as stateful")
-			}
-			// Інакше, оновлюємо стан.
-			p.state.Update(stateOp)
-		} else if err != nil {
+		if err != nil {
 			// Якщо виникла неопізнана помилка при обробці операції, повертаємо цю помилку.
 			return nil, err
-		} else {
-			// Якщо операція звичайна, просто додаємо її у список до передачі в цикл.
+		} else if op != nil {
+			// Додаємо операцію у список до передачі в цикл.
 			res = append(res, op)
 		}
 	}
@@ -50,40 +41,80 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 	return res, nil
 }
 
-// Помилка, що видається парсером, якщо відповідна команді операція потребує обробки стану.
-type statefulError struct{}
+type countError struct{}
 
-func (e statefulError) Error() string {
-	return "The operation requires state management"
+func (e countError) Error() string {
+	return "Invalid argument count"
 }
 
-func parse(cmd string) (painter.Operation, error) {
-	//Розділяємо строку на окремі текстові строки команди за пропусками.
+// process обробляє текстову команду, повертаючи співвідносну операцію для додання в чергу. Враховує потребу редагування стану.
+func (p *Parser) process(cmd string) (painter.Operation, error) {
+	var tweaker painter.StateTweaker
+	defer func() {
+		if tweaker != nil {
+			p.state.Update(tweaker)
+		}
+	}()
+
+	// Розділяємо строку на окремі текстові строки команди за пропусками.
 	fields := strings.Fields(cmd)
 	switch fields[0] {
 	case "white":
-		return painter.OperationFill{Color: color.White}, statefulError{}
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		tweaker = painter.OperationFill{Color: color.White}
 	case "green":
-		return painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}, statefulError{}
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		tweaker = painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}
+	case "update":
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		return painter.UpdateOp, nil
 	case "bgrect":
 		args, err := processArguments(fields[1:], 4)
 		if err != nil {
 			return nil, err
 		}
-		return painter.OperationBGRect{
+		tweaker = painter.OperationBGRect{
 			Min: painter.RelativePoint{X: args[0], Y: args[1]},
 			Max: painter.RelativePoint{X: args[2], Y: args[3]},
-		}, statefulError{}
-	case "update":
-		return painter.UpdateOp, nil
+		}
+	case "figure":
+		args, err := processArguments(fields[1:], 2)
+		if err != nil {
+			return nil, err
+		}
+		tweaker = painter.OperationFigure{
+			Center: painter.RelativePoint{X: args[0], Y: args[1]},
+		}
+	case "move":
+		args, err := processArguments(fields[1:], 2)
+		if err != nil {
+			return nil, err
+		}
+		tweaker = painter.MoveTweaker{
+			Offset: painter.RelativePoint{X: args[0], Y: args[1]},
+		}
+	case "reset":
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		op := painter.OperationReset{}
+		tweaker = op
+		return op, nil
 	default:
 		return nil, fmt.Errorf("Unknown command")
 	}
+	return nil, nil
 }
 
 func processArguments(args []string, requiredLen int) ([]float64, error) {
 	if len(args) != requiredLen {
-		return nil, fmt.Errorf("Invalid argument count")
+		return nil, countError{}
 	}
 	var processed []float64
 	for idx, arg := range args {
@@ -91,10 +122,10 @@ func processArguments(args []string, requiredLen int) ([]float64, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Invalid argument at pos %d", idx)
 		}
-		if num >= 0 && num <= 1 {
+		if num >= -1 && num <= 1 {
 			processed = append(processed, num)
 		} else {
-			return nil, fmt.Errorf("Value at pos %d is not in [0,1] range", idx)
+			return nil, fmt.Errorf("Value at pos %d is not in [-1,1] range", idx)
 		}
 	}
 	return processed, nil
