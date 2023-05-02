@@ -14,16 +14,6 @@ type Operation interface {
 	Do(t screen.Texture) (ready bool)
 }
 
-// OperationList групує список операції в одну.
-type OperationList []Operation
-
-func (ol OperationList) Do(t screen.Texture) (ready bool) {
-	for _, o := range ol {
-		ready = o.Do(t) || ready
-	}
-	return
-}
-
 // StateTweaker вміє змінювати стан малюнку.
 type StateTweaker interface {
 	// SetState виконує зміну переданої операції зі станом.
@@ -41,6 +31,8 @@ type StatefulOperationList struct {
 func (sol StatefulOperationList) Do(t screen.Texture) (ready bool) {
 	if sol.bgOperation != nil {
 		sol.bgOperation.Do(t)
+	} else {
+		t.Fill(t.Bounds(), color.Black, screen.Src)
 	}
 	if sol.bgRectOperation != nil {
 		sol.bgRectOperation.Do(t)
@@ -151,14 +143,9 @@ func (t MoveTweaker) SetState(sol *StatefulOperationList) {
 	}
 }
 
-type OperationReset struct{}
+type ResetTweaker struct{}
 
-func (op OperationReset) Do(t screen.Texture) bool {
-	t.Fill(t.Bounds(), color.Black, screen.Src)
-	return false
-}
-
-func (op OperationReset) SetState(sol *StatefulOperationList) {
+func (op ResetTweaker) SetState(sol *StatefulOperationList) {
 	sol.bgOperation = nil
 	sol.bgRectOperation = nil
 	sol.figureOperations = []*OperationFigure{}
