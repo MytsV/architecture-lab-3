@@ -2,7 +2,10 @@ package lang
 
 import (
 	"bufio"
+	"fmt"
+	"image/color"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/MytsV/architecture-lab-3/painter"
@@ -10,6 +13,8 @@ import (
 
 // Parser уміє прочитати дані з вхідного io.Reader та повернути список операцій представлені вхідним скриптом.
 type Parser struct {
+	// Зберігає стан малюнку у спеціальній операції.
+	state painter.StatefulOperationList
 }
 
 func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
@@ -19,23 +24,109 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		commandLine := scanner.Text()
-		op := parse(commandLine) // Отримати відповідну до команди операцію
-		res = append(res, op)
+		// Отримуємо відповідну до команди структуру.
+		op, err := p.process(commandLine)
+
+		if err != nil {
+			// Якщо виникла неопізнана помилка при обробці операції, повертаємо цю помилку.
+			return nil, err
+		} else if op != nil {
+			// Додаємо операцію у список до передачі в цикл.
+			res = append(res, op)
+		}
 	}
+	// Завжди надсилаємо операцію зі станом у цикл подій, на першому місці.
+	res = append([]painter.Operation{p.state}, res...)
 
 	return res, nil
 }
 
-func parse(line string) painter.Operation {
-	fields := strings.Fields(line)
+type countError struct{}
+
+func (e countError) Error() string {
+	return "Invalid argument count"
+}
+
+// process обробляє текстову команду, повертаючи співвідносну операцію для додання в чергу. Враховує потребу редагування стану.
+func (p *Parser) process(cmd string) (painter.Operation, error) {
+	var tweaker painter.StateTweaker
+	defer func() {
+		if tweaker != nil {
+			p.state.Update(tweaker)
+		}
+	}()
+
+	// Розділяємо строку на окремі текстові строки команди за пропусками.
+	fields := strings.Fields(cmd)
 	switch fields[0] {
 	case "white":
-		return painter.OperationFunc(painter.WhiteFill)
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		tweaker = painter.OperationFill{Color: color.White}
 	case "green":
-		return painter.OperationFunc(painter.GreenFill)
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		tweaker = painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}
 	case "update":
-		return painter.UpdateOp
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		return painter.UpdateOp, nil
+	case "bgrect":
+		args, err := processArguments(fields[1:], 4)
+		if err != nil {
+			return nil, err
+		}
+		tweaker = painter.OperationBGRect{
+			Min: painter.RelativePoint{X: args[0], Y: args[1]},
+			Max: painter.RelativePoint{X: args[2], Y: args[3]},
+		}
+	case "figure":
+		args, err := processArguments(fields[1:], 2)
+		if err != nil {
+			return nil, err
+		}
+		tweaker = painter.OperationFigure{
+			Center: painter.RelativePoint{X: args[0], Y: args[1]},
+		}
+	case "move":
+		args, err := processArguments(fields[1:], 2)
+		if err != nil {
+			return nil, err
+		}
+		tweaker = painter.MoveTweaker{
+			Offset: painter.RelativePoint{X: args[0], Y: args[1]},
+		}
+	case "reset":
+		if len(fields) > 1 {
+			return nil, countError{}
+		}
+		op := painter.OperationReset{}
+		tweaker = op
+		return op, nil
 	default:
-		panic("Unknown command!")
+		return nil, fmt.Errorf("Unknown command")
 	}
+	return nil, nil
+}
+
+func processArguments(args []string, requiredLen int) ([]float64, error) {
+	if len(args) != requiredLen {
+		return nil, countError{}
+	}
+	var processed []float64
+	for idx, arg := range args {
+		num, err := strconv.ParseFloat(arg, 64)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid argument at pos %d", idx)
+		}
+		if num >= -1 && num <= 1 {
+			processed = append(processed, num)
+		} else {
+			return nil, fmt.Errorf("Value at pos %d is not in [-1,1] range", idx)
+		}
+	}
+	return processed, nil
 }
