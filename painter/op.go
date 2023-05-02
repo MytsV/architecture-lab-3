@@ -129,7 +129,7 @@ func (op OperationFigure) Do(t screen.Texture) bool {
 }
 
 func (op OperationFigure) SetState(sol *StatefulOperationList) {
-	sol.FigureOperations = append(sol.FigureOperations, &op)
+	//sol.FigureOperations = append(sol.FigureOperations, &op)
 }
 
 type MoveTweaker struct {

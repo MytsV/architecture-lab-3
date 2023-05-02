@@ -3,7 +3,7 @@ default: out/painter
 clean:
 	rm -rf out
 
-test: **/*.go
+test: ./test/loop_test.go ./test/parser_test.go ./ui/window.go ./painter/*.go ./painter/lang/*.go ./cmd/painter/main.go
 	go test ./...
 
 out/painter: ./ui/window.go ./painter/*.go ./painter/lang/*.go ./cmd/painter/main.go
