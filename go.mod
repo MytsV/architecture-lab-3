@@ -12,5 +12,8 @@ require (
 	dmitri.shuralyov.com/gpu/mtl v0.0.0-20221208032759-85de2813cf6b // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4 // indirect
 	github.com/jezek/xgb v1.0.0 // indirect
+	github.com/jfeliu007/goplantuml v1.6.1 // indirect
+	github.com/spf13/afero v1.8.2 // indirect
 	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 )
