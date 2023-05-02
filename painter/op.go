@@ -34,12 +34,16 @@ type StatefulOperation interface {
 // StatefulOperationList групує операції, що впливають на стан, в одну.
 type StatefulOperationList struct {
 	backgroundOperation Operation
+	bgRectOperation     Operation
 }
 
 // Виконує операції відносно до збереженого стану.
 func (sol StatefulOperationList) Do(t screen.Texture) (ready bool) {
 	if sol.backgroundOperation != nil {
 		sol.backgroundOperation.Do(t)
+	}
+	if sol.bgRectOperation != nil {
+		sol.bgRectOperation.Do(t)
 	}
 	return false
 }
@@ -101,4 +105,8 @@ func (op OperationBGRect) Do(t screen.Texture) bool {
 	rect := image.Rect(minAbs.X, minAbs.Y, maxAbs.X, maxAbs.Y)
 	t.Fill(rect, color.Black, draw.Src)
 	return false
+}
+
+func (op OperationBGRect) SetState(sol *StatefulOperationList) {
+	sol.bgRectOperation = op
 }

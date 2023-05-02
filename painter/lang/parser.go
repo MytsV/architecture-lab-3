@@ -25,22 +25,23 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 	for scanner.Scan() {
 		commandLine := scanner.Text()
 		// Отримуємо відповідну до команди операцію ії тип.
-		op, status, err := parse(commandLine)
-		if err != nil {
-			// Якщо операція не імплементована, видаємо помилку.
-			return nil, err
-		} else if status == regular {
-			// Якщо операція звичайна, просто додаємо її у список до передачі в цикл.
-			res = append(res, op)
-		} else {
+		op, err := parse(commandLine)
+
+		if _, ok := err.(statefulError); ok {
 			// Якщо операція впливає на стан, пробуємо перевести її під інтерфейс StatefulOperation.
 			stateOp, ok := op.(painter.StatefulOperation)
 			if !ok {
 				// Якщо парсер хоче оновлення стану за допомогою звичайної операції, закінчуємо програму з помилкою.
-				panic("Tried to use the state of a regular operation")
+				panic("Tried to use a regular operation as stateful")
 			}
-			// Інакше оновлюємо стан.
+			// Інакше, оновлюємо стан.
 			p.state.Update(stateOp)
+		} else if err != nil {
+			// Якщо виникла неопізнана помилка при обробці операції, повертаємо цю помилку.
+			return nil, err
+		} else {
+			// Якщо операція звичайна, просто додаємо її у список до передачі в цикл.
+			res = append(res, op)
 		}
 	}
 	// Завжди надсилаємо операцію зі станом у цикл подій, на першому місці.
@@ -49,35 +50,34 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 	return res, nil
 }
 
-type cmdType int32
+// Помилка, що видається парсером, якщо відповідна команді операція потребує обробки стану.
+type statefulError struct{}
 
-const (
-	regular  cmdType = 0
-	stateful cmdType = 1
-	absent   cmdType = 2
-)
+func (e statefulError) Error() string {
+	return "The operation requires state management"
+}
 
-func parse(cmd string) (painter.Operation, cmdType, error) {
+func parse(cmd string) (painter.Operation, error) {
 	//Розділяємо строку на окремі текстові строки команди за пропусками.
 	fields := strings.Fields(cmd)
 	switch fields[0] {
 	case "white":
-		return painter.OperationFill{Color: color.White}, stateful, nil
+		return painter.OperationFill{Color: color.White}, statefulError{}
 	case "green":
-		return painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}, stateful, nil
+		return painter.OperationFill{Color: color.RGBA{G: 0xff, A: 0xff}}, statefulError{}
 	case "bgrect":
 		args, err := processArguments(fields[1:], 4)
 		if err != nil {
-			return nil, absent, err
+			return nil, err
 		}
 		return painter.OperationBGRect{
 			Min: painter.RelativePoint{X: args[0], Y: args[1]},
 			Max: painter.RelativePoint{X: args[2], Y: args[3]},
-		}, regular, nil
+		}, statefulError{}
 	case "update":
-		return painter.UpdateOp, regular, nil
+		return painter.UpdateOp, nil
 	default:
-		return nil, absent, fmt.Errorf("Unknown command")
+		return nil, fmt.Errorf("Unknown command")
 	}
 }
 
